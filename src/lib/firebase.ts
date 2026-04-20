@@ -3,12 +3,12 @@ import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-    apiKey: "AIzaSyBwLtoQhKKurkhNHwFdEm0Ho3AU7czEuRU",
-    authDomain: "nexushealth-5acb3.firebaseapp.com",
-    projectId: "nexushealth-5acb3",
-    storageBucket: "nexushealth-5acb3.firebasestorage.app",
-    messagingSenderId: "649211121394",
-    appId: "1:649211121394:web:f2881e9d1da48f184f4a6b"
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 };
 
 // Initialize Firebase

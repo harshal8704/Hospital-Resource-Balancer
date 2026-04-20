@@ -30,7 +30,7 @@ export default function AdminDashboard() {
     const [selectedDepts, setSelectedDepts] = useState<Record<string, string>>({});
 
     // Set ICU beds back to 12 for a realistic hospital start, or leave at 1 to show off overflow!
-    const [resources, setResources] = useState({ icuBeds: 1, generalBeds: 45, ambulances: 5 });
+    const [resources, setResources] = useState({ icuBeds: 12, generalBeds: 45, ambulances: 5 });
     const [surgeActive, setSurgeActive] = useState(false);
     const [conversionLogs, setConversionLogs] = useState<string[]>([]);
 
@@ -369,8 +369,8 @@ export default function AdminDashboard() {
                                     <button
                                         onClick={() => dischargePatient(patient)}
                                         className={`mt-4 w-full border text-xs py-2 rounded font-bold tracking-wider transition-colors ${isICU
-                                            ? 'bg-red-500/10 hover:bg-red-500/30 border-red-500/30 text-red-400'
-                                            : 'bg-cyan-500/10 hover:bg-cyan-500/30 border-cyan-500/30 text-cyan-400'
+                                                ? 'bg-red-500/10 hover:bg-red-500/30 border-red-500/30 text-red-400'
+                                                : 'bg-cyan-500/10 hover:bg-cyan-500/30 border-cyan-500/30 text-cyan-400'
                                             }`}
                                     >
                                         DISCHARGE PATIENT
