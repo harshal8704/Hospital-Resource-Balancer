@@ -6,6 +6,20 @@ import Groq from "groq-sdk";
 import { collection, addDoc, query, where, getDocs, updateDoc, doc, orderBy, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
+// ==========================================
+// THE MATH: HAVERSINE SPHERICAL DISTANCE
+// ==========================================
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+    const R = 6371; // Radius of the Earth in kilometers
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // Distance in kilometers
+}
+
 export async function POST(req: Request) {
     console.log("====================================");
     console.log("1. Webhook Triggered by Twilio!");
@@ -23,6 +37,8 @@ export async function POST(req: Request) {
         // Check for Attachments
         const numMedia = parseInt(params.get("NumMedia") || "0");
         const mediaUrl = numMedia > 0 ? params.get("MediaUrl0") : null;
+
+        // Extract Patient Location
         const latitude = params.get("Latitude");
         const longitude = params.get("Longitude");
 
@@ -42,14 +58,34 @@ export async function POST(req: Request) {
 
             if (!snapshot.empty) {
                 const patientDoc = snapshot.docs[0];
-                // Replace this block in Scenario A
+
+                // 1. Get Hospital Coordinates from .env.local
+                const hospLat = parseFloat(process.env.NEXT_PUBLIC_HOSPITAL_LAT || "21.1255");
+                const hospLng = parseFloat(process.env.NEXT_PUBLIC_HOSPITAL_LNG || "79.0984");
+
+                // 2. Calculate Distance
+                const patientLat = parseFloat(latitude);
+                const patientLng = parseFloat(longitude);
+                const distanceKm = calculateDistance(hospLat, hospLng, patientLat, patientLng);
+
+                // 3. Calculate ETA (Assuming 40 km/h average urban ambulance speed + 3 min dispatch buffer)
+                const speedKmph = 40;
+                const timeHours = distanceKm / speedKmph;
+                const timeMinutes = Math.ceil(timeHours * 60) + 3; // +3 mins for paramedics to board
+
+                // 4. Update Database
                 await updateDoc(doc(db, "patients", patientDoc.id), {
                     locationStr: `${latitude},${longitude}`,
-                    mapLink: `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`
+                    mapLink: `http://googleusercontent.com/maps.google.com/?q=${latitude},${longitude}`,
+                    distanceKm: distanceKm.toFixed(2),
+                    etaMinutes: timeMinutes
                 });
 
+                // 5. Send Dynamic ETA Reply via WhatsApp
+                const reply = `📍 *Target Locked*\nDistance: ${distanceKm.toFixed(1)} km from GMC Nagpur.\n\n🚑 *Ambulance Dispatched!*\nEstimated Time of Arrival: *${timeMinutes} Minutes*.\n\nPlease stay calm and keep your phone accessible. Paramedics are en route.`;
+
                 return new NextResponse(
-                    `<Response><Message>📍 Location acquired. Ambulance is routing to your exact coordinates.</Message></Response>`,
+                    `<Response><Message>${reply}</Message></Response>`,
                     { headers: { "Content-Type": "text/xml" } }
                 );
             } else {
@@ -68,7 +104,6 @@ export async function POST(req: Request) {
         if (mediaUrl) {
             console.log("🎤 Audio Voice Note Detected! Forcing Twilio download...");
 
-            // SECURITY BYPASS: Send Twilio Account SID and Auth Token
             if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
                 throw new Error("Missing TWILIO_ACCOUNT_SID or TWILIO_AUTH_TOKEN in .env.local!");
             }
@@ -144,7 +179,7 @@ export async function POST(req: Request) {
             date1: isEmergency ? "IMMEDIATE" : "Pending",
             date2: isEmergency ? "IMMEDIATE" : "Pending",
             status: "Pending",
-            priorityScore: priorityNumber, // Save the number instead of text
+            priorityScore: priorityNumber,
             timestamp: new Date(),
             mapLink: null
         });
