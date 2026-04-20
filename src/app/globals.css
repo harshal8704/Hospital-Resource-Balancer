@@ -1,27 +1,21 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Tailwind v4 strictly requires this new import format */
+@import "tailwindcss";
 
-:root {
-  --background: #111111;
-  /* Deep matte charcoal */
-  --foreground: #ededed;
-  --glass-bg: rgba(255, 255, 255, 0.03);
-  --glass-border: rgba(255, 255, 255, 0.08);
-}
-
+/* 1. Set the deep medical charcoal background */
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-  -webkit-font-smoothing: antialiased;
+  background-color: #0d0d0f;
+  color: #ffffff;
+  background-image: radial-gradient(circle at 50% 0%, #1a1a24 0%, #0d0d0f 70%);
 }
 
-/* Glassmorphism utility class */
-.glass-card {
-  background: var(--glass-bg);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid var(--glass-border);
-  border-radius: 12px;
+/* 2. Define your custom glassmorphism class using the new v4 layer system */
+@layer utilities {
+  .glass-card {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+    border-radius: 16px;
+  }
 }

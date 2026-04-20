@@ -42,9 +42,10 @@ export async function POST(req: Request) {
 
             if (!snapshot.empty) {
                 const patientDoc = snapshot.docs[0];
+                // Replace this block in Scenario A
                 await updateDoc(doc(db, "patients", patientDoc.id), {
                     locationStr: `${latitude},${longitude}`,
-                    mapLink: `http://googleusercontent.com/maps.google.com/?q=${latitude},${longitude}`
+                    mapLink: `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`
                 });
 
                 return new NextResponse(
@@ -117,7 +118,7 @@ export async function POST(req: Request) {
             messages: [
                 {
                     role: "system",
-                    content: `Extract symptoms, department ("General", "Cardiology", "Neurology", "Orthopedics", "Trauma"), and priority ("High" or "Normal"). Output strict JSON only. Example: {"symptoms": "chest pain", "department": "Cardiology", "priority": "High"}`
+                    content: `Extract symptoms, department ("General", "Cardiology", "Neurology", "Orthopedics", "Trauma"), and assign a priorityScore from 1 to 5 (1 = Critical Life-Threatening Emergency, 2 = Urgent, 3 = Moderate, 4 = Minor, 5 = Routine). Output strict JSON only. Example: {"symptoms": "broken bone", "department": "Orthopedics", "priorityScore": 2}`
                 },
                 { role: "user", content: patientText }
             ],
@@ -128,9 +129,12 @@ export async function POST(req: Request) {
         let aiResponse = chatCompletion.choices[0]?.message?.content || "{}";
         aiResponse = aiResponse.replace(/```json/g, "").replace(/```/g, "").trim();
         const triageData = JSON.parse(aiResponse);
-        const isEmergency = triageData.priority === "High";
 
-        console.log("4. Saving to Firebase...");
+        // Priority 1 and 2 trigger the Emergency Protocols
+        const priorityNumber = triageData.priorityScore || 5;
+        const isEmergency = priorityNumber <= 2;
+
+        console.log("4. Saving to Firebase with Priority:", priorityNumber);
         await addDoc(collection(db, "patients"), {
             phone: senderNumber,
             name: isEmergency ? `🚨 AUDIO EMERGENCY` : `WhatsApp User`,
@@ -140,7 +144,7 @@ export async function POST(req: Request) {
             date1: isEmergency ? "IMMEDIATE" : "Pending",
             date2: isEmergency ? "IMMEDIATE" : "Pending",
             status: "Pending",
-            priority: isEmergency ? "High" : "Normal",
+            priorityScore: priorityNumber, // Save the number instead of text
             timestamp: new Date(),
             mapLink: null
         });

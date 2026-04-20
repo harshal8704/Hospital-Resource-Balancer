@@ -14,21 +14,19 @@ type PatientRequest = {
     imageBase64: string;
     status: string;
     department: string;
-    priority?: string;
+    priorityScore?: number;
 };
 
 const SPECIALTIES = ["General", "Cardiology", "Neurology", "Orthopedics", "Trauma"];
 
 export default function DoctorPortal() {
     const [email, setEmail] = useState("");
-    const [department, setDepartment] = useState("General");
+    const [department, setDepartment] = useState("Trauma"); // Defaulting to Trauma for your demo
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [loginError, setLoginError] = useState("");
 
     const [patients, setPatients] = useState<PatientRequest[]>([]);
     const [loading, setLoading] = useState(false);
-
-    // NEW: Track if there is an active emergency for this doctor
     const [hasEmergency, setHasEmergency] = useState(false);
 
     const handleLogin = (e: React.FormEvent) => {
@@ -54,14 +52,15 @@ export default function DoctorPortal() {
                     const patientData = { id: document.id, ...document.data() } as PatientRequest;
                     if (patientData.department === department) {
                         data.push(patientData);
-                        if (patientData.priority === "High") {
+                        // Check for P1 or P2 Emergency
+                        if (patientData.priorityScore && patientData.priorityScore <= 2) {
                             emergencyDetected = true;
                         }
                     }
                 });
 
-                // Sort to put emergencies first
-                data.sort((a, b) => (a.priority === "High" ? -1 : 1));
+                // Sort: P1 comes first
+                data.sort((a, b) => (a.priorityScore || 5) - (b.priorityScore || 5));
 
                 setPatients(data);
                 setHasEmergency(emergencyDetected);
@@ -71,6 +70,22 @@ export default function DoctorPortal() {
             return () => unsubscribe();
         }
     }, [isAuthenticated, department]);
+
+    // VOICE ALARM FEATURE (The "Wow" Factor)
+    useEffect(() => {
+        if (hasEmergency) {
+            const audio = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
+            audio.play().catch(e => console.log("Audio play blocked until interaction"));
+
+            const msg = new SpeechSynthesisUtterance("Code Red. Priority 1 Trauma Patient Inbound. Prepare receiving bay immediately.");
+            msg.rate = 0.9;
+            msg.pitch = 1.2;
+
+            setTimeout(() => {
+                window.speechSynthesis.speak(msg);
+            }, 1000);
+        }
+    }, [hasEmergency]);
 
     const confirmAppointment = async (id: string, selectedDate: string) => {
         try {
@@ -121,7 +136,6 @@ export default function DoctorPortal() {
     }
 
     return (
-        // If there is an emergency, the whole screen gets a pulsing red vignette
         <div className={`min-h-screen p-8 flex flex-col items-center transition-all duration-1000 ${hasEmergency ? 'bg-red-950/20 shadow-[inset_0_0_150px_rgba(220,38,38,0.15)]' : ''}`}>
             <div className="w-full max-w-6xl">
                 <div className="flex justify-between items-end mb-6 border-b border-white/10 pb-6">
@@ -137,7 +151,6 @@ export default function DoctorPortal() {
                     </div>
                 </div>
 
-                {/* EMERGENCY BANNER */}
                 {hasEmergency && (
                     <div className="mb-8 bg-red-600/20 border border-red-500 p-6 rounded-lg animate-pulse">
                         <h2 className="text-2xl font-bold text-red-500 flex items-center gap-3">
@@ -157,7 +170,7 @@ export default function DoctorPortal() {
                 ) : (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         {patients.map((patient) => {
-                            const isHighPriority = patient.priority === "High";
+                            const isHighPriority = patient.priorityScore && patient.priorityScore <= 2;
 
                             return (
                                 <div key={patient.id} className={`glass-card overflow-hidden group hover:border-white/10 transition-colors ${isHighPriority ? 'border-red-500/50 shadow-[0_0_20px_rgba(220,38,38,0.2)]' : ''}`}>
@@ -165,14 +178,18 @@ export default function DoctorPortal() {
                                     <div className="p-6">
                                         <div className="flex justify-between items-start mb-6">
                                             <div>
-                                                <h2 className={`text-2xl font-bold mb-1 ${isHighPriority ? 'text-red-400' : 'text-white'}`}>{patient.name}</h2>
-                                                <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-bold uppercase tracking-wider ${isHighPriority ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-green-500/10 text-green-400 border border-green-500/20'}`}>
+                                                <div className="flex items-center gap-3">
+                                                    <h2 className={`text-2xl font-bold mb-1 ${isHighPriority ? 'text-red-400' : 'text-white'}`}>{patient.name}</h2>
+                                                    {patient.priorityScore && (
+                                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${isHighPriority ? 'bg-red-500/20 text-red-400 border-red-500/50' : 'bg-gray-500/20 text-gray-400 border-gray-500/50'}`}>
+                                                            P{patient.priorityScore}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <span className={`inline-flex items-center px-2 py-1 mt-1 rounded text-xs font-bold uppercase tracking-wider ${isHighPriority ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-green-500/10 text-green-400 border border-green-500/20'}`}>
                                                     {isHighPriority ? "IMMEDIATE ATTENTION REQUIRED" : "Awaiting Confirmation"}
                                                 </span>
                                             </div>
-                                            {patient.imageBase64 && (
-                                                <img src={patient.imageBase64} alt="Symptom" className="h-16 w-16 object-cover rounded-lg border border-white/10 shadow-lg" />
-                                            )}
                                         </div>
 
                                         <div className="mb-8 bg-black/40 p-4 rounded-lg border border-white/5">
