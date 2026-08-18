@@ -115,49 +115,57 @@ export default function AdminDashboard() {
     const availableAmb = Math.max(0, TOTAL_AMB - usedAmb);
 
     const forwardToDoctor = async (id: string, priorityScore: number = 5) => {
-        const assignedDept = selectedDepts[id] || "Trauma";
+        // 1. Get the department from the dropdown (defaults to Trauma for P1/P2, General for others)
         const isEmergency = priorityScore <= 2;
+        const assignedDept = selectedDepts[id] || (isEmergency ? "Trauma" : "General");
+
         const MAX_SAFE_LOAD = 2;
 
+        // 2. Map the roster with current live loads
         const rosterWithLoads = HOSPITAL_ROSTER.map(doc => {
             const load = activeDeployments.filter(req => req.attendingDoctor === doc.name).length;
             return { ...doc, currentLoad: load };
         });
 
-        let departmentDocs = rosterWithLoads.filter(doc =>
-            doc.baseDept === assignedDept || (surgeActive && isEmergency && doc.baseDept === "General")
-        );
+        // 3. Find doctors WHO ACTUALLY BELONG to the selected department
+        // We only allow "General" doctors to help in "Trauma" during a surge, 
+        // NOT the other way around (Trauma doctors shouldn't do routine appointments).
+        let eligibleDocs = rosterWithLoads.filter(doc => {
+            if (assignedDept === "Trauma" && surgeActive && isEmergency) {
+                return doc.baseDept === "Trauma" || doc.baseDept === "General";
+            }
+            return doc.baseDept === assignedDept;
+        });
 
-        departmentDocs.sort((a, b) => a.currentLoad - b.currentLoad);
-        let bestDocObj = departmentDocs[0];
+        // 4. Sort to find the least busy doctor in that specific department
+        eligibleDocs.sort((a, b) => a.currentLoad - b.currentLoad);
+        let bestDocObj = eligibleDocs[0];
 
-        if (bestDocObj && bestDocObj.currentLoad >= MAX_SAFE_LOAD) {
+        // 5. 🚨 CROSS-DEPARTMENT DRAFTING (ONLY for Emergencies)
+        if (isEmergency && bestDocObj && bestDocObj.currentLoad >= MAX_SAFE_LOAD) {
+            // If the selected department is full, find ANY doctor in the whole hospital with 0-1 load
             rosterWithLoads.sort((a, b) => a.currentLoad - b.currentLoad);
             const draftedDoc = rosterWithLoads[0];
 
             if (draftedDoc.name !== bestDocObj.name) {
                 setConversionLogs(prev => [
-                    `[${new Date().toLocaleTimeString()}] ⚠️ OVERLOAD PROTOCOL: ${assignedDept} wing max capacity. Auto-drafted ${draftedDoc.name} from ${draftedDoc.baseDept}.`,
+                    `[${new Date().toLocaleTimeString()}] ⚠️ OVERLOAD: ${assignedDept} Wing full. Auto-drafted ${draftedDoc.name} from ${draftedDoc.baseDept} for Emergency.`,
                     ...prev
                 ]);
                 bestDocObj = draftedDoc;
             }
         }
 
-        const bestDoctor = bestDocObj ? bestDocObj.name : "Standby Staff";
+        // If no doctor found (rare), fallback to a generic name
+        const bestDoctor = bestDocObj ? bestDocObj.name : "Dr. Lin"; // Fallback to General lead
 
+        // 6. Handle Bed Logic
         let assignedBed = "";
         let ambulanceDispatched = false;
         let newStatus = "Awaiting Doctor Confirmation";
 
         if (isEmergency) {
             newStatus = "Active Deployment";
-            if (availableIcu === 0) {
-                setConversionLogs(prev => [
-                    `[${new Date().toLocaleTimeString()}] 🚨 OVERRIDE: ICU depleted. Converted 5 General beds to Trauma Bays.`,
-                    ...prev
-                ]);
-            }
             assignedBed = `ICU-B${usedIcu + 1}`;
             if (availableAmb > 0) ambulanceDispatched = true;
         } else {

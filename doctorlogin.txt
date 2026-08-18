@@ -1,0 +1,9 @@
+const HOSPITAL_ROSTER = [
+    { name: "Dr. Vance", email: "dr.vance@ycce.in", password: "drvance@trauma", baseDept: "Trauma" },
+    { name: "Dr. Cole", email: "dr.cole@ycce.in", password: "drcole@trauma", baseDept: "Trauma" },
+    { name: "Dr. Hayes", email: "dr.hayes@ycce.in", password: "drhayes@cardiology", baseDept: "Cardiology" },
+    { name: "Dr. Brooks", email: "dr.brooks@ycce.in", password: "drbrooks@neurology", baseDept: "Neurology" },
+    { name: "Dr. Smith", email: "dr.smith@ycce.in", password: "drsmith@orthopedics", baseDept: "Orthopedics" },
+    { name: "Dr. Lin", email: "dr.lin@ycce.in", password: "drlin@general", baseDept: "General" },
+    { name: "Dr. Patel", email: "dr.patel@ycce.in", password: "drpatel@general", baseDept: "General" },
+];
